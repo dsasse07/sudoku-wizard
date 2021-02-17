@@ -34,7 +34,7 @@ class Sudoku
       empty_cell = find_next_empty_cell(puzzle_matrix)
       return puzzle_matrix if !empty_cell #If no empty cells, we are done. Return the completed puzzle
 
-      # Fill in the empty cell
+      # Fill in the empty cell 
       for num in (1..9).to_a.shuffle do 
           abort "Puzzle Generation timed out after #{@fail_safe} seconds. Please Retry" if (Time.now - @start_time > @fail_safe)
           if safe(puzzle_matrix, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
