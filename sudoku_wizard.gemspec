@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.description = "Uses backtracking algorithm to generate random boards of specified difficulty and find solutions"
   s.authors     = ["Daniel Sasse"]
   s.email       = 'dsasse07@gmail.com'
-  s.files       = ["lib/sudoku-wizard.rb"]
+  s.files       = ["lib/sudoku_wizard.rb"]
   s.homepage    =
     'https://rubygems.org/gems/sudoku-wizard'
   s.license       = 'MIT'
