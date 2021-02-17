@@ -1,5 +1,3 @@
-require 'pry'
-
 class Sudoku
   attr_accessor :starting_board, :solution, :removed_values, :difficulty
 
@@ -14,8 +12,6 @@ class Sudoku
     [0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0]
   ]
-
-  # NUM_ARRAY = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
   def initialize(holes = 30)
     holes > 64 ? 64 : holes
@@ -133,8 +129,3 @@ class Sudoku
   end
 
 end
-
-
-
-binding.pry
-false
