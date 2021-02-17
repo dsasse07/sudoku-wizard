@@ -1,7 +1,7 @@
 require 'pry'
 
 class Sudoku
-  attr_accessor :solution, :board
+  attr_accessor :starting_board, :solution, :removed_values, :difficulty
 
   BLANK_BOARD = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -14,148 +14,127 @@ class Sudoku
     [0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0]
   ]
-  BLANK_BOARD
 
-  @@num_array = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  # NUM_ARRAY = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
-  def initialize
-    start = Time.now
+  def initialize(holes = 30)
+    holes > 64 ? 64 : holes
+    self.solution = new_solved_board
+    self.removed_values, self.starting_board = poke_holes(self.solution.map(&:clone), holes)
+    self.difficulty = holes
+  end
+
+  def new_solved_board
     new_board = BLANK_BOARD.map(&:clone)
-    counter = 0
-
-    while new_board.last.last == 0 do
-      new_board = clean_board
-      generate_puzzle(new_board)
-      counter += 1
-    end
-    self.solution = new_board.map(&:clone)
-    self.board = remove_num(new_board.map(&:clone), 20)
-    puts Time.now - start
-    puts counter
-    # binding.pry
+    solve(new_board)
+    new_board
   end
 
-  def clean_board
-    board = [
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0],
-      [0, 0, 0, 0, 0, 0, 0, 0, 0]
-    ]
-    return board
-  end
-
-
-
-  def generate_puzzle (puzzle_array)
-      empty_cell = find_next_empty_cell(puzzle_array)
-      return true if !empty_cell #If no empty cells, we are done. Return the completed puzzle
+  def solve (puzzle_matrix)
+      empty_cell = find_next_empty_cell(puzzle_matrix)
+      return puzzle_matrix if !empty_cell #If no empty cells, we are done. Return the completed puzzle
 
       # Fill in the empty cell
-      @@num_array.shuffle.each do |num|
-          if safe(puzzle_array, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
-              puzzle_array[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
-              return puzzle_array if generate_puzzle(puzzle_array) # Recursively call solve method again.
+      for num in (1..9).to_a.shuffle do 
+          if safe(puzzle_matrix, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
+            puzzle_matrix[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
+            return puzzle_matrix if solve(puzzle_matrix) # Recursively call solve method again.
+            puzzle_matrix[empty_cell[:row_i]][empty_cell[:col_i]] = 0
           end
       end
       return false  #If unable to place a number, return false, trigerring previous iteration to move to next number
   end
 
-  def solve (puzzle_array)
-    empty_cell = find_next_empty_cell(puzzle_array)
-    return true if !empty_cell #If no empty cells, we are done. Return the solved puzzle
-
-    # Fill in the empty cell
-    (1..9).to_a.each do |num|
-        # puts "trying #{num}"
-        # sleep(0.2)
-        if safe(puzzle_array, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
-          # puts "#{num} placed"
-            puzzle_array[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
-            return puzzle_array if solve(puzzle_array) # Recursively call solve method again.
-        end
-    end
-    return false  #If unable to place a number, return false, trigerring previous iteration to move to next number
-end
-
-
-
-
-
-  def find_next_empty_cell(puzzle_array)
+  def find_next_empty_cell(puzzle_matrix)
       # Find the coordinates of the next unsolved cell
       empty_cell = {row_i:"",col_i:""}
-      puzzle_array.each_with_index do |row, row_index|
-          row.each_with_index do |column, col_index|
-              if column == 0 
-                  empty_cell[:row_i], empty_cell[:col_i] = row_index, col_index  
-                  break
-              end   
-          end   
-          break if !(empty_cell[:row_i] == "") && !(empty_cell[:col_i] == "")
+      for row in puzzle_matrix do
+        next_zero_index = row.find_index(0)
+        empty_cell[:row_i] = puzzle_matrix.find_index(row)
+        empty_cell[:col_i] = next_zero_index
+        return empty_cell if empty_cell[:col_i]
       end
-      !(empty_cell[:col_i] == "") ? empty_cell : false
+
+      return false
   end
 
-  def safe(puzzle_array, empty_cell, num)
-      row_safe(puzzle_array, empty_cell, num) && 
-      col_safe(puzzle_array, empty_cell, num) && 
-      box_safe(puzzle_array, empty_cell, num)
+  def safe(puzzle_matrix, empty_cell, num)
+      row_safe(puzzle_matrix, empty_cell, num) && 
+      col_safe(puzzle_matrix, empty_cell, num) && 
+      box_safe(puzzle_matrix, empty_cell, num)
   end
 
-  def row_safe (puzzle_array, empty_cell, num)
-      return false if puzzle_array[ empty_cell[:row_i] ].find_index(num)
-      # puts "row safe"
+  def row_safe (puzzle_matrix, empty_cell, num)
+      return false if puzzle_matrix[ empty_cell[:row_i] ].find_index(num)
       return true
   end
 
-  def col_safe (puzzle_array, empty_cell, num)
-      return false if puzzle_array.any?{|row| row[ empty_cell[:col_i] ] == num}
-      # puts "col safe"
+  def col_safe (puzzle_matrix, empty_cell, num)
+      return false if puzzle_matrix.any?{|row| row[ empty_cell[:col_i] ] == num}
       return true
   end
 
-  def box_safe (puzzle_array, empty_cell, num)
+  def box_safe (puzzle_matrix, empty_cell, num)
       box_start_row = (empty_cell[:row_i] - (empty_cell[:row_i] % 3)) 
       box_start_col = (empty_cell[:col_i] - (empty_cell[:col_i] % 3)) 
 
       (0..2).to_a.each do |box_row|
           (0..2).to_a.each do |box_col|
-              return false if puzzle_array[box_start_row + box_row][box_start_col + box_col] == num
+              return false if puzzle_matrix[box_start_row + box_row][box_start_col + box_col] == num
           end
       end
-      # puts "box safe"
       return true
   end
 
 
-  def remove_num(puzzle_array, holes)
-    removed_vals = []
+  def poke_holes(puzzle_matrix, holes)
+    removed_values = []
 
-    while removed_vals.length < holes
-      # binding.pry
-      val = (1..81).to_a.sample
-      row_i = val / 9
-      col_i= val % 9
-      next if (puzzle_array[row_i][col_i] == 0)
-      removed_vals.push({row_i: row_i, col_i: col_i, val: puzzle_array[row_i][col_i] })
-      puzzle_array[row_i][col_i] = 0
-      if !solve( puzzle_array.map(&:clone) )
-        puzzle_array[row_i][col_i] = removed_vals.last[:val]
-        removed_vals.pop
+    while removed_values.length < holes
+      row_i = (0..8).to_a.sample
+      col_i = (0..8).to_a.sample
+
+      next if (puzzle_matrix[row_i][col_i] == 0)
+      removed_values.push({row_i: row_i, col_i: col_i, val: puzzle_matrix[row_i][col_i] })
+      puzzle_matrix[row_i][col_i] = 0
+
+      proposed_board = puzzle_matrix.map(&:clone)
+      if !solve( proposed_board )
+        puzzle_matrix[row_i][col_i] = removed_values.pop[:val]
       end
     end
-    puzzle_array
-  # binding.pry
+
+    [removed_values, puzzle_matrix]
   end
 
+  def render(board_name)
+    b = self.send(board_name).map{|row| row.map{|col| col == 0 ? " " : col} }
+    puts "
+  ┏━━━┳━━━┳━━━┱───┬───┬───┲━━━┳━━━┳━━━┓
+  ┃ #{b[0][0]} ┃ #{b[0][1]} ┃ #{b[0][2]} ┃ #{b[0][3]} │ #{b[0][4]} │ #{b[0][5]} ┃ #{b[0][6]} ┃ #{b[0][7]} ┃ #{b[0][8]} ┃
+  ┣━━━╋━━━╋━━━╉───┼───┼───╊━━━╋━━━╋━━━┫
+  ┃ #{b[1][0]} ┃ #{b[1][1]} ┃ #{b[1][2]} ┃ #{b[1][3]} │ #{b[1][4]} │ #{b[1][5]} ┃ #{b[1][6]} ┃ #{b[1][7]} ┃ #{b[1][8]} ┃
+  ┣━━━╋━━━╋━━━╉───┼───┼───╊━━━╋━━━╋━━━┫
+  ┃ #{b[2][0]} ┃ #{b[2][1]} ┃ #{b[2][2]} ┃ #{b[2][3]} │ #{b[2][4]} │ #{b[2][5]} ┃ #{b[2][6]} ┃ #{b[2][7]} ┃ #{b[2][8]} ┃
+  ┡━━━╇━━━╇━━━╋━━━╈━━━╈━━━╋━━━╇━━━╇━━━┩
+  │ #{b[3][0]} │ #{b[3][1]} │ #{b[3][2]} ┃ #{b[3][3]} ┃ #{b[3][4]} ┃ #{b[3][5]} ┃ #{b[3][6]} │ #{b[3][7]} │ #{b[3][8]} │
+  ├───┼───┼───╊━━━╋━━━╋━━━╉───┼───┼───┤
+  │ #{b[4][0]} │ #{b[4][1]} │ #{b[4][2]} ┃ #{b[4][3]} ┃ #{b[4][4]} ┃ #{b[4][5]} ┃ #{b[4][6]} │ #{b[4][7]} │ #{b[4][8]} │
+  ├───┼───┼───╊━━━╋━━━╋━━━╉───┼───┼───┤
+  │ #{b[5][0]} │ #{b[5][1]} │ #{b[5][2]} ┃ #{b[5][3]} ┃ #{b[5][4]} ┃ #{b[5][5]} ┃ #{b[5][6]} │ #{b[5][7]} │ #{b[5][8]} │
+  ┢━━━╈━━━╈━━━╋━━━╇━━━╇━━━╋━━━╈━━━╈━━━┪
+  ┃ #{b[6][0]} ┃ #{b[6][1]} ┃ #{b[6][2]} ┃ #{b[6][3]} │ #{b[6][4]} │ #{b[6][5]} ┃ #{b[6][6]} ┃ #{b[6][7]} ┃ #{b[6][8]} ┃
+  ┣━━━╋━━━╋━━━╉───┼───┼───╊━━━╋━━━╋━━━┫
+  ┃ #{b[7][0]} ┃ #{b[7][1]} ┃ #{b[7][2]} ┃ #{b[7][3]} │ #{b[7][4]} │ #{b[7][5]} ┃ #{b[7][6]} ┃ #{b[7][7]} ┃ #{b[7][8]} ┃
+  ┣━━━╋━━━╋━━━╉───┼───┼───╊━━━╋━━━╋━━━┫
+  ┃ #{b[8][0]} ┃ #{b[8][1]} ┃ #{b[8][2]} ┃ #{b[8][3]} │ #{b[8][4]} │ #{b[8][5]} ┃ #{b[8][6]} ┃ #{b[8][7]} ┃ #{b[8][8]} ┃
+  ┗━━━┻━━━┻━━━┹───┴───┴───┺━━━┻━━━┻━━━┛
+  "
+  end
 
 end
+
+
 
 binding.pry
 false
