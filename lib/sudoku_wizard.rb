@@ -1,3 +1,5 @@
+require 'pry'
+
 class Sudoku
   attr_accessor :starting_board, :solution, :removed_values, :difficulty
 
@@ -13,7 +15,9 @@ class Sudoku
     [0, 0, 0, 0, 0, 0, 0, 0, 0]
   ]
 
-  def initialize(holes = 30)
+  def initialize(holes = 30, fail_safe = 3.0)
+    @start_time = Time.now
+    @fail_safe = fail_safe
     holes > 64 ? 64 : holes
     self.solution = new_solved_board
     self.removed_values, self.starting_board = poke_holes(self.solution.map(&:clone), holes)
@@ -32,6 +36,7 @@ class Sudoku
 
       # Fill in the empty cell
       for num in (1..9).to_a.shuffle do 
+          abort "Puzzle Generation timed out after #{@fail_safe} seconds. Please Retry" if (Time.now - @start_time > @fail_safe)
           if safe(puzzle_matrix, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
             puzzle_matrix[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
             return puzzle_matrix if solve(puzzle_matrix) # Recursively call solve method again.
@@ -129,3 +134,6 @@ class Sudoku
   end
 
 end
+
+binding.pry
+false
