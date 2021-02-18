@@ -1,4 +1,4 @@
-# require 'pry'
+require 'pry'
 
 class Sudoku
   attr_accessor :starting_board, :solution, :removed_values, :difficulty
@@ -117,9 +117,7 @@ class Sudoku
       puzzle_matrix[row_i][col_i] = 0
 
       proposed_board = puzzle_matrix.map(&:clone)
-      if !solve( proposed_board )
-        puzzle_matrix[row_i][col_i] = removed_values.pop[:val]
-      end
+      puzzle_matrix[row_i][col_i] = removed_values.pop[:val] if !solve( proposed_board )
     end
 
     [removed_values, puzzle_matrix]
@@ -169,5 +167,5 @@ class Sudoku
 
 end
 
-# binding.pry
-# false
+binding.pry
+false
