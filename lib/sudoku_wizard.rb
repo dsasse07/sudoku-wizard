@@ -1,4 +1,4 @@
-require 'pry'
+# require 'pry'
 
 class Sudoku
   attr_accessor :starting_board, :solution, :removed_values, :difficulty
@@ -15,20 +15,29 @@ class Sudoku
     [0, 0, 0, 0, 0, 0, 0, 0, 0]
   ]
 
-  def initialize(holes = 30, fail_safe = 3.0)
-    @fail_safe = fail_safe
+  def initialize( holes = 40, status_messages = false )
+    start_time = Time.now
     holes > 64 ? 64 : holes
-    generate_game(holes)    
+    @status_messages = status_messages
+
+    puts "Generating Game..." if @status_messages 
+    generate_game(holes)
+    
+    return if !@status_messages 
+    puts "Board Generated in"
+    puts "#{ format_number(@iteration_counter) } Iterations"
+    puts " #{ Time.now - start_time } seconds"
   end
 
   def generate_game(holes)
     begin
-      @start_time = Time.now
+      # @start_time = Time.now
+      @iteration_counter = 0
       self.solution = new_solved_board
       self.removed_values, self.starting_board = poke_holes(self.solution.map(&:clone), holes)
       self.difficulty = holes  
     rescue
-      puts "Puzzle Generation timed out after #{@fail_safe} seconds. Restarting"
+      puts "#{ format_number(@iteration_counter) } iterations, Restarting"  if @status_messages 
       generate_game(holes)
     end
   end
@@ -45,7 +54,8 @@ class Sudoku
 
       # Fill in the empty cell 
       for num in (1..9).to_a.shuffle do 
-          raise if (Time.now - @start_time > @fail_safe)
+          @iteration_counter += 1
+          raise if (@iteration_counter > 1_000_000)
           if safe(puzzle_matrix, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
             puzzle_matrix[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
             return puzzle_matrix if solve(puzzle_matrix) # Recursively call solve method again.
@@ -140,7 +150,24 @@ class Sudoku
   "
   end
 
+  private
+
+  def format_number(integer)
+    number_of_digits = Math.log(integer, 10).floor + 1
+    number_of_segments = (number_of_digits / 3.0).ceil
+    int_as_array = integer.to_s.split("")
+    formatted_array = []
+    index = 1
+    
+    while index <= number_of_digits do 
+      formatted_array.unshift(int_as_array[ index * -1 ] )
+      formatted_array.unshift("_") if index % 3 == 0 && index != number_of_digits
+      index += 1
+    end
+    formatted_array.join("")
+  end
+
 end
 
-binding.pry
-false
+# binding.pry
+# false
