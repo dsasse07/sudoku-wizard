@@ -9,4 +9,4 @@ Gem::Specification.new do |s|
   s.homepage    =
     'https://github.com/dsasse07/sudoku-wizard'
   s.license       = 'MIT'
-end  
+end   
