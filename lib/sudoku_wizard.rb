@@ -148,7 +148,28 @@ class Sudoku
   "
   end
 
+  def multiple_solutions?(board_to_check)
+    possible_solutions = []
+    empty_cell_array = empty_cell_coords(board_to_check)
+
+    empty_cell_array.each_with_index do |coord, index|
+      empty_cell_array_clone = empty_cell_array.clone
+      bring_index_to_front(index, empty_cell_array_clone)
+      this_solution = fill_from_array( board_to_check.clone, empty_cell_array_clone )
+      possible_solutions.push(this_solution)
+      return true if possible_solutions.uniq.length > 1
+    end
+    false
+  end
+
+
   private
+  def bring_index_to_front(index, array)
+    starting_point = array.slice(index)
+    array.delete_at(index)
+    array.unshift(starting_point)
+  end
+
 
   def format_number(integer)
     number_of_digits = Math.log(integer, 10).floor + 1
@@ -166,6 +187,119 @@ class Sudoku
   end
 
 end
+
+SOLVED_BOARD = [
+    [2, 8, 4, 7, 9, 1, 5, 3, 6],
+    [7, 3, 6, 5, 8, 2, 4, 9, 1],
+    [9, 1, 5, 3, 4, 6, 2, 7, 8],
+    [5, 4, 1, 2, 7, 3, 8, 6, 9],
+    [8, 6, 7, 9, 5, 4, 3, 1, 2],
+    [3, 9, 2, 1, 6, 8, 7, 5, 4],
+    [1, 7, 3, 4, 2, 9, 6, 8, 5],
+    [6, 2, 9, 8, 3, 5, 1, 4, 7],
+    [4, 5, 8, 6, 1, 7, 9, 2, 3]
+  ]
+
+MULTIPLE_SOLUTION = [
+    [0,1,7,5,6,0,0,0,8],
+    [0,5,0,0,0,1,3,0,7],
+    [0,9,2,0,0,0,6,0,1],
+    [0,7,0,2,3,0,8,4,0],
+    [4,3,0,6,1,0,0,7,9],
+    [0,6,8,0,0,7,0,3,0],
+    [7,0,0,1,5,0,9,8,4],
+    [0,0,1,7,0,3,5,0,0],
+    [0,0,6,0,2,0,7,0,0]
+]
+
+def bring_index_to_front(index, array)
+  starting_point = array.slice(index)
+  array.delete_at(index)
+  array.unshift(starting_point)
+end
+
+def multiple_solutions?(board_to_check)
+  possible_solutions = []
+  empty_cell_array = empty_cell_coords(board_to_check)
+
+  empty_cell_array.each_with_index do |coord, index|
+    board_clone = board_to_check.map{|row| row.map{|col| col}}
+    empty_cell_array_clone = empty_cell_array.map{|coord| coord}
+    bring_index_to_front(index, empty_cell_array_clone)
+    this_solution = fill_from_array( board_clone, empty_cell_array_clone )
+    possible_solutions.push(this_solution)
+    return true if possible_solutions.uniq.length > 1
+  end
+  false
+end
+
+def fill_from_array(board, empty_cell_array)
+  empty_cell = next_still_empty_cell(board, empty_cell_array)
+  return board if !empty_cell
+
+  for num in (1..9).to_a.shuffle do 
+    # @poke_counter += 1
+    # raise if (@poke_counter > 1_000_000)
+    if safe(board, empty_cell, num) 
+      board[empty_cell[:row_i]][empty_cell[:col_i]] = num
+      return board if fill_from_array(board, empty_cell_array)
+      board[empty_cell[:row_i]][empty_cell[:col_i]] = 0
+    end
+  end
+  false
+end
+
+def next_still_empty_cell(board, empty_cell_array)
+  empty_cell_array.each do |coords|
+    next if board[ coords[:row] ][ coords[:col] ] != 0
+    return {row_i: coords[:row], col_i: coords[:col] }
+  end
+  false
+end
+
+def empty_cell_coords(board)
+  (0..8).to_a.each_with_object( [] ) do |row, empty_cells|
+    (0..8).to_a.each do |col|
+      next if board[row][col] != 0
+      empty_cells << {row:row, col:col} 
+    end
+  end
+end
+
+
+
+
+
+######################################################
+
+def safe(puzzle_matrix, empty_cell, num)
+  row_safe(puzzle_matrix, empty_cell, num) && 
+  col_safe(puzzle_matrix, empty_cell, num) && 
+  box_safe(puzzle_matrix, empty_cell, num)
+end
+
+def row_safe (puzzle_matrix, empty_cell, num)
+  !puzzle_matrix[ empty_cell[:row_i] ].find_index(num)
+end
+
+def col_safe (puzzle_matrix, empty_cell, num)
+  !puzzle_matrix.any?{|row| row[ empty_cell[:col_i] ] == num}
+end
+
+def box_safe (puzzle_matrix, empty_cell, num)
+  box_start_row = (empty_cell[:row_i] - (empty_cell[:row_i] % 3)) 
+  box_start_col = (empty_cell[:col_i] - (empty_cell[:col_i] % 3)) 
+
+  (0..2).to_a.each do |box_row|
+      (0..2).to_a.each do |box_col|
+          return false if puzzle_matrix[box_start_row + box_row][box_start_col + box_col] == num
+      end
+  end
+  return true
+end
+
+
+
 
 binding.pry
 false
