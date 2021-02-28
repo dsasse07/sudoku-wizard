@@ -17,11 +17,11 @@ class Sudoku
 
   def initialize( holes = 40, status_messages = false )
     start_time = Time.now
-    holes > 64 ? 64 : holes
+    self.difficulty = holes > 54 ? 54 : holes
     @status_messages = status_messages
 
     puts "Generating Game..." if @status_messages 
-    generate_game(holes)
+    generate_game
     
     return if !@status_messages 
     puts "Board Generated in"
@@ -29,16 +29,17 @@ class Sudoku
     puts " #{ Time.now - start_time } seconds"
   end
 
-  def generate_game(holes)
+  def generate_game
     begin
       # @start_time = Time.now
       @iteration_counter = 0
+      @poke_counter = 0
       self.solution = new_solved_board
-      self.removed_values, self.starting_board = poke_holes(self.solution.map(&:clone), holes)
-      self.difficulty = holes  
-    rescue
+      self.starting_board = poke_holes(self.solution.map(&:clone))
+    rescue => error
+      puts error
       puts "#{ format_number(@iteration_counter) } iterations, Restarting"  if @status_messages 
-      generate_game(holes)
+      generate_game
     end
   end
 
@@ -55,7 +56,7 @@ class Sudoku
       # Fill in the empty cell 
       for num in (1..9).to_a.shuffle do 
           @iteration_counter += 1
-          raise if (@iteration_counter > 1_000_000)
+          raise "too make buil iterations" if (@iteration_counter > 1_000_000)
           if safe(puzzle_matrix, empty_cell, num) # For a number, check if it safe to place that number in the empty cell
             puzzle_matrix[empty_cell[:row_i]][empty_cell[:col_i]] = num # if safe, place number
             return puzzle_matrix if solve(puzzle_matrix) # Recursively call solve method again.
@@ -105,22 +106,26 @@ class Sudoku
   end
 
 
-  def poke_holes(puzzle_matrix, holes)
-    removed_values = []
+  def poke_holes(puzzle_matrix)
+    self.removed_values = []
+    val = (0...81).to_a.shuffle
 
-    while removed_values.length < holes
-      row_i = (0..8).to_a.sample
-      col_i = (0..8).to_a.sample
+    while self.removed_values.length < self.difficulty
+      next_val = val.pop
+      raise "impossible game" if !next_val
 
+      row_i = next_val / 9
+      col_i = next_val % 9
+      
       next if (puzzle_matrix[row_i][col_i] == 0)
-      removed_values.push({row_i: row_i, col_i: col_i, val: puzzle_matrix[row_i][col_i] })
+      self.removed_values.push({row_i: row_i, col_i: col_i, val: puzzle_matrix[row_i][col_i] })
       puzzle_matrix[row_i][col_i] = 0
-
+      
       proposed_board = puzzle_matrix.map(&:clone)
-      puzzle_matrix[row_i][col_i] = removed_values.pop[:val] if !solve( proposed_board )
+      puzzle_matrix[row_i][col_i] = self.removed_values.pop[:val] if multiple_solutions?( proposed_board )
     end
 
-    [removed_values, puzzle_matrix]
+    puzzle_matrix
   end
 
   def render(board_name)
@@ -148,27 +153,63 @@ class Sudoku
   "
   end
 
-  def multiple_solutions?(board_to_check)
-    possible_solutions = []
-    empty_cell_array = empty_cell_coords(board_to_check)
-
-    empty_cell_array.each_with_index do |coord, index|
-      empty_cell_array_clone = empty_cell_array.clone
-      bring_index_to_front(index, empty_cell_array_clone)
-      this_solution = fill_from_array( board_to_check.clone, empty_cell_array_clone )
-      possible_solutions.push(this_solution)
-      return true if possible_solutions.uniq.length > 1
-    end
-    false
-  end
-
-
   private
   def bring_index_to_front(index, array)
     starting_point = array.slice(index)
     array.delete_at(index)
     array.unshift(starting_point)
   end
+
+
+  ###############
+  def multiple_solutions?(board_to_check)
+    possible_solutions = []
+    empty_cell_array = empty_cell_coords(board_to_check)
+    empty_cell_array.each_with_index do |coord, index|
+      board_clone = board_to_check.map{|row| row.map{|col| col}}
+      empty_cell_array_clone = empty_cell_array.map{|coord| coord}
+      bring_index_to_front(index, empty_cell_array_clone)
+      this_solution = fill_from_array( board_clone, empty_cell_array_clone )
+      possible_solutions.push(this_solution)
+
+      return true if possible_solutions.uniq.length > 1
+    end
+    return false
+  end
+
+  def fill_from_array(board, empty_cell_array)
+    empty_cell = next_still_empty_cell(board, empty_cell_array)
+    return board if !empty_cell
+    for num in (1..9).to_a.shuffle do 
+      @poke_counter += 1
+      raise "too many pokes: #{@poke_counter}, #{board}, removed: #{@removed_values.length}" if (@poke_counter > 10_000_000)
+      if safe(board, empty_cell, num) 
+        board[empty_cell[:row_i]][empty_cell[:col_i]] = num
+        return board if fill_from_array(board, empty_cell_array)
+        board[empty_cell[:row_i]][empty_cell[:col_i]] = 0
+      end
+    end
+    false
+  end
+  
+  def next_still_empty_cell(board, empty_cell_array)
+    empty_cell_array.each do |coords|
+      next if board[ coords[:row] ][ coords[:col] ] != 0
+      return {row_i: coords[:row], col_i: coords[:col] }
+    end
+    false
+  end
+  
+  def empty_cell_coords(board)
+    (0..8).to_a.each_with_object( [] ) do |row, empty_cells|
+      (0..8).to_a.each do |col|
+        next if board[row][col] != 0
+        empty_cells << {row:row, col:col} 
+      end
+    end
+  end
+
+  #################
 
 
   def format_number(integer)
@@ -211,92 +252,6 @@ MULTIPLE_SOLUTION = [
     [0,0,1,7,0,3,5,0,0],
     [0,0,6,0,2,0,7,0,0]
 ]
-
-def bring_index_to_front(index, array)
-  starting_point = array.slice(index)
-  array.delete_at(index)
-  array.unshift(starting_point)
-end
-
-def multiple_solutions?(board_to_check)
-  possible_solutions = []
-  empty_cell_array = empty_cell_coords(board_to_check)
-
-  empty_cell_array.each_with_index do |coord, index|
-    board_clone = board_to_check.map{|row| row.map{|col| col}}
-    empty_cell_array_clone = empty_cell_array.map{|coord| coord}
-    bring_index_to_front(index, empty_cell_array_clone)
-    this_solution = fill_from_array( board_clone, empty_cell_array_clone )
-    possible_solutions.push(this_solution)
-    return true if possible_solutions.uniq.length > 1
-  end
-  false
-end
-
-def fill_from_array(board, empty_cell_array)
-  empty_cell = next_still_empty_cell(board, empty_cell_array)
-  return board if !empty_cell
-
-  for num in (1..9).to_a.shuffle do 
-    # @poke_counter += 1
-    # raise if (@poke_counter > 1_000_000)
-    if safe(board, empty_cell, num) 
-      board[empty_cell[:row_i]][empty_cell[:col_i]] = num
-      return board if fill_from_array(board, empty_cell_array)
-      board[empty_cell[:row_i]][empty_cell[:col_i]] = 0
-    end
-  end
-  false
-end
-
-def next_still_empty_cell(board, empty_cell_array)
-  empty_cell_array.each do |coords|
-    next if board[ coords[:row] ][ coords[:col] ] != 0
-    return {row_i: coords[:row], col_i: coords[:col] }
-  end
-  false
-end
-
-def empty_cell_coords(board)
-  (0..8).to_a.each_with_object( [] ) do |row, empty_cells|
-    (0..8).to_a.each do |col|
-      next if board[row][col] != 0
-      empty_cells << {row:row, col:col} 
-    end
-  end
-end
-
-
-
-
-
-######################################################
-
-def safe(puzzle_matrix, empty_cell, num)
-  row_safe(puzzle_matrix, empty_cell, num) && 
-  col_safe(puzzle_matrix, empty_cell, num) && 
-  box_safe(puzzle_matrix, empty_cell, num)
-end
-
-def row_safe (puzzle_matrix, empty_cell, num)
-  !puzzle_matrix[ empty_cell[:row_i] ].find_index(num)
-end
-
-def col_safe (puzzle_matrix, empty_cell, num)
-  !puzzle_matrix.any?{|row| row[ empty_cell[:col_i] ] == num}
-end
-
-def box_safe (puzzle_matrix, empty_cell, num)
-  box_start_row = (empty_cell[:row_i] - (empty_cell[:row_i] % 3)) 
-  box_start_col = (empty_cell[:col_i] - (empty_cell[:col_i] % 3)) 
-
-  (0..2).to_a.each do |box_row|
-      (0..2).to_a.each do |box_col|
-          return false if puzzle_matrix[box_start_row + box_row][box_start_col + box_col] == num
-      end
-  end
-  return true
-end
 
 
 
